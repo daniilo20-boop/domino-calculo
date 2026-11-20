@@ -13,6 +13,8 @@ const mathExpressions = {
 let players = [];
 let playerNames = [];
 let playerTimes = [];
+let isVsComputer = false;    // Define se a partida é 1 Jogador vs Computador
+let botTimeout = null;       // Controla o tempo de "pensamento" do computador
 let useTimer = false;
 let timerInterval = null;
 let board = [];
@@ -39,7 +41,10 @@ const transitionMsg = document.getElementById('transition-msg');
 
 // Event Listeners
 btnStart.addEventListener('click', startGame);
-btnPass.addEventListener('click', passTurn);
+btnPass.addEventListener('click', () => {
+    if (isVsComputer && currentPlayerIndex === 1) return; // Bloqueia clique na vez do bot
+    passTurn();
+});
 btnReady.addEventListener('click', showPlayerScreen);
 numPlayersInput.addEventListener('input', renderNameInputs);
 
@@ -66,6 +71,16 @@ function renderNameInputs() {
         `;
         playerNamesContainer.appendChild(row);
     }
+
+    // Aviso sutil quando 1 jogador é selecionado
+    if (count === 1) {
+        const info = document.createElement('p');
+        info.style.color = '#7cc4fa';
+        info.style.fontSize = '0.85rem';
+        info.style.marginTop = '6px';
+        info.innerText = '🤖 Modo Solo: Você jogará contra o Computador!';
+        playerNamesContainer.appendChild(info);
+    }
 }
 
 renderNameInputs();
@@ -79,6 +94,7 @@ function startGame() {
 
     const selectedSeconds = parseInt(timeLimitSelect.value);
     useTimer = selectedSeconds > 0;
+    isVsComputer = (numPlayers === 1);
 
     let deck = generateDeck();
     deck = shuffleDeck(deck);
@@ -87,13 +103,27 @@ function startGame() {
     playerNames = [];
     playerTimes = [];
 
-    for (let i = 0; i < numPlayers; i++) {
+    if (isVsComputer) {
+        // Jogador Humano (índice 0)
         players.push(deck.splice(0, 7));
-        
-        const inputEl = document.getElementById(`player-name-${i + 1}`);
+        const inputEl = document.getElementById('player-name-1');
         const typedName = inputEl ? inputEl.value.trim() : '';
-        playerNames.push(typedName || `Jogador ${i + 1}`);
+        playerNames.push(typedName || 'Você');
         playerTimes.push(selectedSeconds);
+
+        // Oponente Computador (índice 1)
+        players.push(deck.splice(0, 7));
+        playerNames.push('Computador 🤖');
+        playerTimes.push(selectedSeconds);
+    } else {
+        for (let i = 0; i < numPlayers; i++) {
+            players.push(deck.splice(0, 7));
+            
+            const inputEl = document.getElementById(`player-name-${i + 1}`);
+            const typedName = inputEl ? inputEl.value.trim() : '';
+            playerNames.push(typedName || `Jogador ${i + 1}`);
+            playerTimes.push(selectedSeconds);
+        }
     }
     
     boneyard = deck;
@@ -105,10 +135,10 @@ function startGame() {
     setupScreen.classList.remove('active-screen');
     setupScreen.classList.add('hidden');
     
-    if (players.length > 1) {
-        showTransitionScreen();
-    } else {
+    if (isVsComputer) {
         showPlayerScreen();
+    } else {
+        showTransitionScreen();
     }
 }
 
@@ -159,6 +189,7 @@ function startTurnTimer() {
 
             if (playerTimes[currentPlayerIndex] === 0) {
                 stopTurnTimer();
+                clearTimeout(botTimeout);
                 handleTimeOut();
             }
         }
@@ -200,12 +231,6 @@ function renderTimers() {
 function handleTimeOut() {
     const timeOutPlayer = playerNames[currentPlayerIndex];
 
-    if (players.length === 1) {
-        alert(`⏱️ O tempo acabou, ${timeOutPlayer}! Você ficou com ${players[0].length} peça(s) na mão.`);
-        location.reload();
-        return;
-    }
-
     let minPieces = Infinity;
     let minSum = Infinity;
     let winnerName = "";
@@ -223,6 +248,73 @@ function handleTimeOut() {
 
     alert(`⏱️ O tempo de ${timeOutPlayer} acabou!\n\n🏆 ${winnerName} venceu a partida por ter menos peças (${minPieces} peça(s))!`);
     location.reload();
+}
+
+// ==========================================
+// INTELIGÊNCIA ARTIFICIAL DO COMPUTADOR
+// ==========================================
+function scheduleComputerTurn() {
+    clearTimeout(botTimeout);
+    botTimeout = setTimeout(() => {
+        executeComputerTurn();
+    }, 1200); // Pausa de 1.2s para simular raciocínio
+}
+
+function executeComputerTurn() {
+    // Garante que ainda é a vez do computador e o jogo não acabou
+    if (!isVsComputer || currentPlayerIndex !== 1) return;
+
+    const botHand = players[1];
+
+    // Se a mesa estiver vazia, joga a peça de maior soma
+    if (board.length === 0) {
+        let bestIdx = 0;
+        let maxVal = -1;
+        botHand.forEach((t, idx) => {
+            if (t.val1 + t.val2 > maxVal) {
+                maxVal = t.val1 + t.val2;
+                bestIdx = idx;
+            }
+        });
+        placeTile(botHand[bestIdx], bestIdx, 'right', false);
+        return;
+    }
+
+    // Procura todas as peças jogáveis e escolhe a de maior pontuação (estratégia clássica)
+    let bestMove = null;
+    let highestScore = -1;
+
+    botHand.forEach((tile, idx) => {
+        const score = tile.val1 + tile.val2;
+        if (score > highestScore) {
+            if (tile.val1 === rightEnd) {
+                highestScore = score;
+                bestMove = { tile, idx, side: 'right', flip: false };
+            } else if (tile.val2 === rightEnd) {
+                highestScore = score;
+                bestMove = { tile, idx, side: 'right', flip: true };
+            } else if (tile.val2 === leftEnd) {
+                highestScore = score;
+                bestMove = { tile, idx, side: 'left', flip: false };
+            } else if (tile.val1 === leftEnd) {
+                highestScore = score;
+                bestMove = { tile, idx, side: 'left', flip: true };
+            }
+        }
+    });
+
+    if (bestMove) {
+        placeTile(bestMove.tile, bestMove.idx, bestMove.side, bestMove.flip);
+    } else if (boneyard.length > 0) {
+        // Compra uma peça do monte e tenta jogar novamente após breve pausa
+        const newTile = boneyard.pop();
+        botHand.push(newTile);
+        updateUI();
+    } else {
+        // Não tem peça e o monte acabou: passa a vez
+        alert("🤖 O Computador não tem peças compatíveis e passou a vez!");
+        nextTurn();
+    }
 }
 
 // ==========================================
@@ -247,22 +339,50 @@ function showPlayerScreen() {
 }
 
 function updateUI() {
-    turnIndicator.innerHTML = `<span style="font-size: 0.9rem; font-weight: 600; opacity: 0.85;">Vez de:</span> ${playerNames[currentPlayerIndex]}`;
+    const isBotTurn = isVsComputer && currentPlayerIndex === 1;
+
+    turnIndicator.innerHTML = isBotTurn
+        ? `<span style="font-size: 0.9rem; font-weight: 600; opacity: 0.85;">Pensando:</span> ${playerNames[1]}`
+        : `<span style="font-size: 0.9rem; font-weight: 600; opacity: 0.85;">Vez de:</span> ${playerNames[currentPlayerIndex]}`;
 
     renderTimers();
     renderBoardSnake();
 
+    // No modo vs Computador, sempre exibe a SUA mão (índice 0) na parte inferior
+    const handToDisplay = isVsComputer ? players[0] : players[currentPlayerIndex];
     handDiv.innerHTML = '';
-    players[currentPlayerIndex].forEach((tile, index) => {
+
+    handToDisplay.forEach((tile, index) => {
         const dominoEl = createDominoElement(tile, 'vertical', false);
-        dominoEl.addEventListener('click', () => playTile(index));
+        if (isBotTurn) {
+            dominoEl.style.opacity = '0.6';
+            dominoEl.style.cursor = 'not-allowed';
+        } else {
+            dominoEl.addEventListener('click', () => playTile(index));
+        }
         handDiv.appendChild(dominoEl);
     });
 
-    if (players[currentPlayerIndex].length === 0) {
+    // Desabilita visualmente o botão de comprar/passar enquanto o computador pensa
+    btnPass.disabled = isBotTurn;
+    btnPass.style.opacity = isBotTurn ? '0.5' : '1';
+    btnPass.style.cursor = isBotTurn ? 'not-allowed' : 'pointer';
+
+    // Verifica condição de vitória (alguém zerou a mão)
+    const winnerIndex = players.findIndex(hand => hand.length === 0);
+    if (winnerIndex !== -1) {
         stopTurnTimer();
-        alert(`🎉 Fim de jogo! ${playerNames[currentPlayerIndex]} bateu e venceu!`);
-        location.reload();
+        clearTimeout(botTimeout);
+        setTimeout(() => {
+            alert(`🎉 Fim de jogo! ${playerNames[winnerIndex]} bateu e venceu!`);
+            location.reload();
+        }, 150);
+        return;
+    }
+
+    // Se for a vez do computador, aciona a jogada automática
+    if (isBotTurn) {
+        scheduleComputerTurn();
     }
 }
 
@@ -285,7 +405,6 @@ function renderBoardSnake() {
     let y = 0;
     let dir = 1;
 
-    // 1º Passo: Calcula as posições relativas e os limites reais (min/max) do conjunto
     const items = [];
     let minX = Infinity, maxX = -Infinity;
     let minY = 0, maxY = tileShort;
@@ -324,7 +443,6 @@ function renderBoardSnake() {
         items.push({ tile, index, drawX, drawY, orientation, isReversed });
     });
 
-    // 2º Passo: Calcula a altura do tabuleiro e o deslocamento para centralizar tudo
     const totalWidth = maxX - minX;
     const totalHeight = maxY - minY;
     const boardHeight = Math.max(isMobile ? 150 : 200, totalHeight + padding * 2);
@@ -332,7 +450,6 @@ function renderBoardSnake() {
     const offsetX = Math.max(padding, (boardWidth - totalWidth) / 2) - minX;
     const offsetY = Math.max(padding, (boardHeight - totalHeight) / 2) - minY;
 
-    // 3º Passo: Renderiza as peças já centralizadas na mesa
     items.forEach(({ tile, index, drawX, drawY, orientation, isReversed }) => {
         const dominoEl = createDominoElement(tile, orientation, isReversed);
         dominoEl.style.left = `${drawX + offsetX}px`;
@@ -383,6 +500,8 @@ function createDominoElement(tile, orientation, reverseVisual) {
 }
 
 function playTile(tileIndex) {
+    if (isVsComputer && currentPlayerIndex === 1) return;
+
     const tile = players[currentPlayerIndex][tileIndex];
 
     if (board.length === 0) {
@@ -467,9 +586,9 @@ function nextTurn() {
     
     currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
     
-    if (players.length > 1) {
-        showTransitionScreen();
-    } else {
+    if (isVsComputer) {
         updateUI();
+    } else {
+        showTransitionScreen();
     }
 }
