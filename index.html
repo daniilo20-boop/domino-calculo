@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dominó de Cálculo Matemático</title>
+    <link rel="icon" type="image/jpeg" href="imagem/domino-calculo.jpeg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- TELA DE CONFIGURAÇÃO / BOAS-VINDAS -->
+    <div id="setup-screen" class="screen active-screen">
+        <div class="logo-container">
+            <img src="imagem/domino-calculo.jpeg" alt="Dominó de Cálculo Matemático" class="game-logo">
+            <h1>Dominó de Cálculo</h1>
+            <p class="subtitle">Treine sua mente conectando operações matemáticas!</p>
+        </div>
+
+        <div class="setup-box">
+            <div class="input-group">
+                <label for="num-players">Quantidade de Jogadores:</label>
+                <input type="number" id="num-players" min="1" max="4" value="2">
+            </div>
+
+            <div id="player-names-container">
+                <!-- Gerado dinamicamente pelo JS -->
+            </div>
+
+            <!-- ESCOLHA DE TEMPO ESTILO XADREZ -->
+            <div class="input-group time-select-group">
+                <label for="time-limit">Tempo por Jogador (Estilo Xadrez):</label>
+                <select id="time-limit">
+                    <option value="0">Sem limite de tempo</option>
+                    <option value="60">1 Minuto (Relâmpago)</option>
+                    <option value="120" selected>2 Minutos (Rápido)</option>
+                    <option value="180">3 Minutos (Clássico)</option>
+                    <option value="300">5 Minutos (Estratégico)</option>
+                </select>
+            </div>
+
+            <button id="btn-start" class="btn-primary">Iniciar Jogo</button>
+        </div>
+    </div>
+
+    <!-- TELA DE TRANSIÇÃO (PASSAR O DISPOSITIVO) -->
+    <div id="transition-screen" class="screen hidden">
+        <div class="transition-box">
+            <img src="imagem/domino-calculo.jpeg" alt="Dominó" class="mini-logo">
+            <h2 id="transition-msg">Passe o dispositivo para o próximo jogador</h2>
+            <p class="pause-note">⏸️ Relógios pausados durante a troca</p>
+            <button id="btn-ready" class="btn-primary">Estou Pronto!</button>
+        </div>
+    </div>
+
+    <!-- TELA DO JOGO -->
+    <div id="game-screen" class="screen hidden">
+        <header class="game-header">
+            <div class="header-title">
+                <img src="imagem/domino-calculo.jpeg" alt="Ícone Dominó" class="header-icon">
+                <h1>Dominó de Cálculo</h1>
+            </div>
+            <div class="game-status">
+                <span id="turn-indicator">Vez de: Jogador 1</span>
+            </div>
+        </header>
+
+        <!-- RELÓGIOS DE XADREZ DOS JOGADORES -->
+        <div id="timers-container" class="timers-bar">
+            <!-- Gerado dinamicamente pelo JS -->
+        </div>
+
+        <!-- Tabuleiro / Mesa do Jogo -->
+        <main id="board" class="game-board">
+            <!-- As peças jogadas em formato de serpentina centralizada entrarão aqui -->
+        </main>
+
+        <!-- Painel de Controle e Mão do Jogador -->
+        <footer class="player-area">
+            <div class="action-bar">
+                <h3>Sua Mão:</h3>
+                <button id="btn-pass" class="btn-secondary">Comprar / Passar Vez</button>
+            </div>
+            <div id="player-hand" class="hand-container">
+                <!-- Peças do jogador atual entrarão aqui -->
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
